@@ -1,0 +1,97 @@
+<?php
+class ImagesResultsProvider {
+
+	private $con;
+
+	public function __construct($con){
+        $this->con = $con;
+	}
+
+	public function getNumResults($term){
+		$query = $this->con->prepare("SELECT Count(*) as total
+			                           FROM images 
+			                           Where (title LIKE :term
+			                           OR alt LIKE :term)
+			                           AND broken=0");
+
+		$searchTerm = "%".$term."%";
+		$query->bindparam(":term", $searchTerm);
+		$query->execute();
+
+		$row = $query->fetch(PDO::FETCH_ASSOC);
+		return $row["total"];
+
+
+	} 
+
+    public function getResultsHTML($page, $pageSize, $term){
+
+    	$fromlimit = ($page-1)*$pageSize;
+
+		$query = $this->con->prepare("SELECT * 
+			                           FROM images 
+			                           Where title LIKE :term
+			                           OR alt LIKE :term
+			                           AND broken=0
+			                           ORDER BY Clicks DESC
+			                           LIMIT :fromlimit, :pageSize");
+
+		$searchTerm = "%".$term."%";
+		$query->bindparam(":term", $searchTerm);
+		$query->bindparam(":fromlimit", $fromlimit, PDO::PARAM_INT);
+		$query->bindparam(":pageSize", $pageSize, PDO::PARAM_INT);
+		$query->execute();
+
+		$resultsHTML = "<div class='imageResults'>";
+         
+         $count = 0;
+         while ($row = $query->fetch(PDO::FETCH_ASSOC)) {
+         	$count++;
+         	$id = $row["id"];
+         	$imageUrl = $row["imageUrl"];
+         	$siteUrl = $row["siteUrl"];
+         	$title = $row["title"];
+         	$alt = $row["alt"];
+
+
+           if($title){
+           	  $displayText = $title;
+           }
+
+           else if($alt){
+           	$displayText = $alt;
+           }
+
+           else{
+           	$displayText = $imageUrl;
+           }
+         	
+         	$resultsHTML .= "<div class='gridItem image$count'>
+   								<a href='$imageUrl' data-fancybox data-caption='$displayText' 
+   								data-siteurl='$siteUrl'>
+   								   <script>
+                                     $(document).ready(function(){
+                                             loadImage(\"$imageUrl\", \"image$count\")
+                                     	});
+   								   </script>
+
+   								   <span class='details'>$displayText</span>
+   								</a>
+   								
+
+         	                </div>";
+         }
+
+		$resultsHTML .= "</div>";
+
+		return $resultsHTML;
+
+
+	} 
+
+	
+}
+
+
+
+?> 
